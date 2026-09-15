@@ -1,4 +1,4 @@
-# 教学用例：从 README 正文的 ✓ / ✗ 抽出来，供 scripts/check_examples.py 自动核对。
+# 教学用例：从 docs/ 正文的 ✓ / ✗ 抽出来，供 scripts/check_examples.py 自动核对。
 #
 # CI 引擎：Python 包 pcre2（真实 PCRE2）+ 默认 ASCII，使 \w/\d/\b 接近文中
 # 「PCRE 默认不含汉字」。不是 regex101 的完整 UI 复刻。
