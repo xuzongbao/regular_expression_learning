@@ -5,3 +5,10 @@ Thumbs.db
 *.swp
 *.swo
 *~
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.pytest_cache/

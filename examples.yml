@@ -1,0 +1,593 @@
+# 教学用例：从 README 正文的 ✓ / ✗ 抽出来，供 scripts/check_examples.py 自动核对。
+#
+# CI 引擎：Python 包 pcre2（真实 PCRE2）+ 默认 ASCII，使 \w/\d/\b 接近文中
+# 「PCRE 默认不含汉字」。不是 regex101 的完整 UI 复刻。
+#
+# 字段：
+#   id         稳定编号
+#   pattern    模式（单引号字符串，反斜杠按字面保存）
+#   flavor     pcre（文档默认；pcre2 也可）
+#   "yes"      必须匹配的字符串（键必须加引号，否则 YAML 1.1 会变成 true）
+#   "no"       必须不匹配的字符串（同上，否则会变成 false）
+#   flags      可选，如 i / m / s / x；写 u 则改走 Unicode
+#   fullmatch  可选，true 时用整串匹配（教学里的「整串校验」）
+#   first      可选，yes[0] 上第一次 search 的命中文本
+#   all        可选，yes[0] 上全部非重叠命中（类似 regex101 勾 Global）
+#   skip       可选，true 则不编译、不执行（ReDoS、CI 引擎不支持的写法）
+#   note       可选说明
+#
+# yes/no 里的每一项都请加引号，避免 12345、007、2026-09-15 被当成数字或日期。
+
+version: 1
+engine: pcre2
+
+cases:
+  # --- 从例子开始 ---
+  - id: intro-word-hi
+    pattern: '\bhi\b'
+    flavor: pcre
+    note: 独立单词 hi
+    "yes":
+      - "hi"
+      - "say hi."
+    "no":
+      - "him"
+      - "history"
+
+  - id: intro-hi-then-lucy
+    pattern: '\bhi\b.*\bLucy\b'
+    flavor: pcre
+    note: 默认点号不匹配换行
+    "yes":
+      - "hi Lucy"
+      - "hi there, Lucy"
+    "no":
+      - "hi\nLucy"
+      - "hi there"
+
+  - id: intro-phone-area3
+    pattern: '0\d{2}-\d{8}'
+    flavor: pcre
+    "yes":
+      - "010-12345678"
+    "no":
+      - "0376-1234567"
+
+  # --- 元字符 ---
+  - id: meta-word-starting-a
+    pattern: '\ba\w*\b'
+    flavor: pcre
+    "yes":
+      - "apple"
+      - "an"
+      - "a"
+    "no":
+      - "banana"
+      - "Apple"
+
+  - id: meta-digits-plus
+    pattern: '\d+'
+    flavor: pcre
+    "yes":
+      - "1"
+      - "007"
+      - "2026"
+    "no":
+      - ""
+      - "abc"
+
+  - id: meta-word-exactly-6
+    pattern: '\b\w{6}\b'
+    flavor: pcre
+    "yes":
+      - "python"
+      - "regexp"
+    "no":
+      - "regex"
+      - "regular"
+
+  - id: meta-whole-digits-5-to-12
+    pattern: '^\d{5,12}$'
+    flavor: pcre
+    fullmatch: true
+    "yes":
+      - "12345"
+      - "123456789012"
+    "no":
+      - "1234"
+      - "1234567890123"
+      - "12345abc"
+
+  # --- 字符转义 ---
+  - id: escape-dot
+    pattern: '\.'
+    flavor: pcre
+    first: "."
+    "yes":
+      - "deerchao.cn"
+      - "."
+    "no":
+      - "abc"
+
+  - id: escape-star
+    pattern: '\*'
+    flavor: pcre
+    first: "*"
+    "yes":
+      - "3*4"
+      - "*"
+    "no":
+      - "34"
+
+  - id: escape-backslash
+    pattern: '\\'
+    flavor: pcre
+    first: "\\"
+    "yes":
+      - "C:\\Windows"
+    "no":
+      - "Windows"
+
+  # --- 重复（量词） ---
+  - id: quant-windows-digits
+    pattern: 'Windows\d+'
+    flavor: pcre
+    "yes":
+      - "Windows7"
+      - "Windows11"
+    "no":
+      - "Windows"
+      - "windows11"
+
+  - id: quant-first-word-from-start
+    pattern: '^\w+'
+    flavor: pcre
+    first: "Hello"
+    "yes":
+      - "Hello world"
+      - "Hello"
+    "no":
+      - " Hello"
+
+  # --- 字符类 ---
+  - id: class-vowel
+    pattern: '[aeiou]'
+    flavor: pcre
+    "yes":
+      - "a"
+      - "e"
+      - "regex"
+    "no":
+      - "b"
+      - "A"
+
+  - id: class-punct
+    pattern: '[.?!]'
+    flavor: pcre
+    "yes":
+      - "."
+      - "?"
+      - "!"
+    "no":
+      - ","
+      - " "
+
+  - id: class-digit
+    pattern: '[0-9]'
+    flavor: pcre
+    "yes":
+      - "0"
+      - "9"
+    "no":
+      - "a"
+
+  - id: class-word-ascii
+    pattern: '[A-Za-z0-9_]'
+    flavor: pcre
+    "yes":
+      - "A"
+      - "z"
+      - "0"
+      - "_"
+    "no":
+      - "-"
+      - " "
+      - "汉"
+
+  - id: class-phone-loose
+    pattern: '\(?0\d{2}[) -]?\d{8}'
+    flavor: pcre
+    note: 字符类版偏松；配对错误的号码也可能命中，故不放进 no
+    "yes":
+      - "(010)88886666"
+      - "022-22334455"
+      - "02912345678"
+    "no":
+      - "0376-1234567"
+
+  # --- 分枝条件 ---
+  - id: branch-two-landline-formats
+    pattern: '0\d{2}-\d{8}|0\d{3}-\d{7}'
+    flavor: pcre
+    "yes":
+      - "010-12345678"
+      - "0376-1234567"
+    "no":
+      - "01012345678"
+      - "010-1234567"
+
+  - id: branch-area3-optional-parens-anchored
+    pattern: '^(?:\(0\d{2}\)[- ]?\d{8}|0\d{2}[- ]?\d{8})$'
+    flavor: pcre
+    fullmatch: true
+    note: 正文里用 ^$ 才能拒绝括号不配对的串
+    "yes":
+      - "(010)88886666"
+      - "010-22334455"
+      - "02912345678"
+    "no":
+      - "010)12345678"
+      - "(022-87654321"
+
+  - id: branch-us-zip-correct-order
+    pattern: '^(?:\d{5}-\d{4}|\d{5})$'
+    flavor: pcre
+    fullmatch: true
+    "yes":
+      - "12345"
+      - "12345-6789"
+    "no":
+      - "1234"
+      - "12345-678"
+
+  - id: branch-us-zip-wrong-order-first-match
+    pattern: '\d{5}|\d{5}-\d{4}'
+    flavor: pcre
+    first: "12345"
+    note: 更具体的分枝在右时，查找往往只吃到前 5 位
+    "yes":
+      - "12345-6789"
+
+  # --- 分组 / IPv4 ---
+  - id: group-ipv4-loose
+    pattern: '(\d{1,3}\.){3}\d{1,3}'
+    flavor: pcre
+    note: 教学简化版会放过 256.300.888.999
+    "yes":
+      - "192.168.1.1"
+      - "0.0.0.0"
+      - "256.300.888.999"
+    "no":
+      - "192.168.1"
+      - "abc.def.ghi.jkl"
+
+  - id: group-ipv4-strict-octet
+    pattern: '^((2[0-4]\d|25[0-5]|[01]?\d\d?)\.){3}(2[0-4]\d|25[0-5]|[01]?\d\d?)$'
+    flavor: pcre
+    fullmatch: true
+    "yes":
+      - "192.168.0.1"
+      - "255.255.255.255"
+      - "01.02.03.04"
+    "no":
+      - "256.1.1.1"
+      - "1.1.1.999"
+      - "1.1.1"
+
+  # --- 反义 ---
+  - id: negated-non-space
+    pattern: '\S+'
+    flavor: pcre
+    "yes":
+      - "hello"
+      - "a_b-1"
+    "no":
+      - " "
+      - "\t"
+
+  - id: negated-a-tag
+    pattern: '<a[^>]+>'
+    flavor: pcre
+    "yes":
+      - "<a href=\"https://example.com\">"
+      - "<abc>"
+    "no":
+      - "<a>"
+      - "<b>"
+
+  # --- 反向引用 ---
+  - id: backref-repeated-word
+    pattern: '\b(\w+)\b\s+\1\b'
+    flavor: pcre
+    "yes":
+      - "go go"
+      - "kitty kitty"
+      - "go  go"
+    "no":
+      - "go to"
+      - "go Go"
+
+  - id: backref-repeated-word-named
+    pattern: '\b(?<Word>\w+)\b\s+\k<Word>\b'
+    flavor: pcre
+    note: PCRE 命名组 + \k<name>
+    "yes":
+      - "go go"
+    "no":
+      - "go to"
+
+  # --- 环视 ---
+  - id: lookaround-stem-before-ing
+    pattern: '\b\w+(?=ing\b)'
+    flavor: pcre
+    first: "sing"
+    all:
+      - "sing"
+      - "danc"
+    "yes":
+      - "I'm singing while you are dancing"
+      - "singing"
+    "no":
+      - "ing"
+
+  - id: lookaround-after-re-prefix
+    pattern: '(?<=\bre)\w+\b'
+    flavor: pcre
+    first: "ading"
+    "yes":
+      - "reading"
+    "no":
+      - "bread"
+
+  - id: lookaround-digits-between-spaces
+    pattern: '(?<=\s)\d+(?=\s)'
+    flavor: pcre
+    first: "42"
+    "yes":
+      - " 42 "
+    "no":
+      - "42"
+      - "42."
+
+  - id: lookaround-q-not-followed-by-u
+    pattern: '\b\w*q(?!u)\w*\b'
+    flavor: pcre
+    "yes":
+      - "Iraq"
+      - "Benq"
+      - "qat"
+    "no":
+      - "quick"
+      - "equal"
+
+  - id: lookaround-three-digits-not-more
+    pattern: '\d{3}(?!\d)'
+    flavor: pcre
+    first: "123"
+    note: 1234 里第一次命中会滑到后三位 234，所以不把它放进 no
+    "yes":
+      - "abc123"
+      - "123."
+    "no":
+      - "ab"
+
+  - id: lookaround-word-without-abc
+    pattern: '\b(?:(?!abc)\w)+\b'
+    flavor: pcre
+    "yes":
+      - "ab"
+      - "axbc"
+      - "word"
+    "no":
+      - "abc"
+      - "xabcy"
+
+  - id: lookaround-seven-digits-not-after-lower
+    pattern: '(?<![a-z])\d{7}'
+    flavor: pcre
+    "yes":
+      - "1234567"
+      - "A1234567"
+      - " 1234567"
+    "no":
+      - "a1234567"
+
+  - id: lookaround-simple-tag-inner
+    pattern: '<(\w+)>(.*?)</\1>'
+    flavor: pcre
+    first: "<b>bold</b>"
+    note: 正文提供的不依赖变长后行的写法；内容在第 2 组
+    "yes":
+      - "<b>bold</b>"
+    "no":
+      - "<b>bold</i>"
+      - "<div class=\"x\">y</div>"
+
+  - id: lookaround-var-lookbehind-html
+    pattern: '(?<=<(\w+)>).*?(?=</\1>)'
+    flavor: pcre
+    skip: true
+    note: 变长且含捕获的后行；regex101 的 PCRE2 可试，CI 用的 pcre2 绑定会拒绝无限长后行，故不执行
+
+  # --- 贪婪与懒惰 ---
+  - id: greedy-a-dotstar-b
+    pattern: 'a.*b'
+    flavor: pcre
+    first: "aabab"
+    all:
+      - "aabab"
+    "yes":
+      - "aabab"
+
+  - id: lazy-a-dotstar-b
+    pattern: 'a.*?b'
+    flavor: pcre
+    first: "aab"
+    all:
+      - "aab"
+      - "ab"
+    "yes":
+      - "aabab"
+
+  - id: greedy-b-tags
+    pattern: '<b>.*</b>'
+    flavor: pcre
+    first: "<b>one</b><b>two</b>"
+    all:
+      - "<b>one</b><b>two</b>"
+    "yes":
+      - "<b>one</b><b>two</b>"
+
+  - id: lazy-b-tags
+    pattern: '<b>.*?</b>'
+    flavor: pcre
+    first: "<b>one</b>"
+    all:
+      - "<b>one</b>"
+      - "<b>two</b>"
+    "yes":
+      - "<b>one</b><b>two</b>"
+
+  # --- 标志 ---
+  - id: flags-inline-ignorecase-windows
+    pattern: '(?i)windows\d+'
+    flavor: pcre
+    "yes":
+      - "Windows11"
+      - "windows11"
+      - "WINDOWS11"
+    "no":
+      - "window11"
+
+  - id: flags-i-windows
+    pattern: 'windows\d+'
+    flavor: pcre
+    flags: i
+    "yes":
+      - "Windows11"
+      - "windows11"
+    "no":
+      - "window11"
+
+  - id: comment-ipv4-octet
+    pattern: '2[0-4]\d(?#200-249)|25[0-5](?#250-255)|[01]?\d\d?(?#0-199)'
+    flavor: pcre
+    fullmatch: true
+    note: (?#…) 内嵌注释不参与匹配
+    "yes":
+      - "200"
+      - "255"
+      - "199"
+      - "01"
+    "no":
+      - "256"
+      - "abc"
+
+  # --- 常用实战模式 ---
+  - id: cookbook-email
+    pattern: '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+    flavor: pcre
+    fullmatch: true
+    "yes":
+      - "user@example.com"
+      - "a.b-c@mail.co"
+    "no":
+      - "user@"
+      - "@example.com"
+      - "user@.com"
+      - "user@example"
+
+  - id: cookbook-cn-mobile
+    pattern: '^1[3-9]\d{9}$'
+    flavor: pcre
+    fullmatch: true
+    "yes":
+      - "13812345678"
+      - "19900001111"
+    "no":
+      - "12812345678"
+      - "1381234567"
+      - "138123456789"
+      - "138-1234-5678"
+
+  - id: cookbook-date-ymd
+    pattern: '^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$'
+    flavor: pcre
+    fullmatch: true
+    note: 不管闰年与大小月，2026-02-31 也会过
+    "yes":
+      - "2026-09-15"
+      - "2026-01-01"
+      - "2026-12-31"
+      - "2026-02-31"
+    "no":
+      - "2026-13-01"
+      - "2026-09-32"
+      - "26-09-15"
+      - "2026/09/15"
+
+  - id: cookbook-url-httpish
+    pattern: '^https?://[A-Za-z0-9.-]+(?::\d{1,5})?(?:/[^\s]*)?$'
+    flavor: pcre
+    fullmatch: true
+    "yes":
+      - "https://example.com"
+      - "http://example.com/path"
+      - "https://example.com:8080/a?x=1"
+    "no":
+      - "ftp://example.com"
+      - "example.com"
+      - "https://"
+      - "https://example.com/has space"
+
+  - id: cookbook-integer
+    pattern: '^-?\d+$'
+    flavor: pcre
+    fullmatch: true
+    "yes":
+      - "0"
+      - "-42"
+      - "2026"
+      - "007"
+    "no":
+      - "3.14"
+      - "01a"
+      - "+3"
+      - ""
+
+  - id: cookbook-decimal-required
+    pattern: '^-?\d+\.\d+$'
+    flavor: pcre
+    fullmatch: true
+    "yes":
+      - "3.14"
+      - "-0.5"
+      - "0.0"
+    "no":
+      - ".5"
+      - "3."
+      - "42"
+      - "3.14.15"
+
+  - id: cookbook-integer-or-decimal
+    pattern: '^-?\d+(?:\.\d+)?$'
+    flavor: pcre
+    fullmatch: true
+    "yes":
+      - "42"
+      - "3.14"
+      - "-0.5"
+    "no":
+      - ".5"
+      - "3."
+
+  # --- ReDoS：只作文档，不执行 ---
+  - id: redos-nested-plus-doc-only
+    pattern: '^(a+)+$'
+    flavor: pcre
+    skip: true
+    note: 灾难性回溯教学示例，不在 CI 中执行，避免把嵌套量词当计时炸弹
+    "yes":
+      - "aaaaaaa"
+    "no":
+      - "aaaaaaaaaaaaaaaaaaaaX"
