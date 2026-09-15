@@ -1,0 +1,5 @@
+# 仅用于校验 examples.yml，不是给业务应用装的依赖。
+# pcre2：PCRE2 绑定（比标准库 re、比 regex 库更接近本文默认引擎）。
+# PyYAML：解析 examples.yml。
+pcre2==0.7.1
+PyYAML==6.0.2

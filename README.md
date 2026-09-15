@@ -53,6 +53,27 @@ Verifiable regex cheat sheet and study notes (Chinese). Not a full textbook.
 
 不要只看模式「长得对」。正则难的是边界：多一个空格、少一个转义、引擎不同，结果都会变。
 
+仓库里还有一份可自动跑的清单，见 [如何运行校验](#如何运行校验)。
+
+---
+
+## 如何运行校验
+
+正文里的 ✓ / ✗ 抽了一份到 [`examples.yml`](examples.yml)，用脚本自动跑，避免笔记和真实引擎各说各话。
+
+**CI 用的引擎接近 PCRE2，但不是 regex101 的完整复刻。** GitHub Actions（`ubuntu-latest`）跑的是 **Python 3 + [`pcre2`](https://pypi.org/project/pcre2/) 包**（捆绑 libpcre2，比标准库 `re`、也比 PyPI 上的 `regex` 库更接近本文默认引擎），并默认加上 `ASCII`，让 `\w` / `\d` / `\b` 接近文中说的 PCRE 默认（**不含汉字**）。这和 JavaScript `RegExp`、Python `re`、以及 regex101 上每一个勾选项都可能有边角差别。递归 `(?R)`、.NET 平衡组不会放进这份会执行的清单。
+
+本地（仓库根目录）：
+
+```bash
+python3 -m pip install -r requirements-ci.txt
+python3 scripts/check_examples.py
+```
+
+失败时脚本会打印是哪一条 `id`、哪一个测试字符串不符合。往 `examples.yml` 增补用例后，请在本地跑通再推送；推到 `master` 的 push / pull request 也会跑 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)。
+
+灾难性回溯那种教学模式（如 `^(a+)+$`）只写在清单里作文档，标了 `skip: true`，**不会**在 CI 里当计时炸弹执行。变长且含捕获的后行（正文里的 `(?<=<(\w+)>).*?(?=</\1>)`）同样跳过：CI 用的 PCRE2 绑定会拒绝无限长后行；请用旁边那条不依赖后行的 `<(\w+)>(.*?)</\1>` 来对拍，或到 regex101 选 PCRE2 手试。
+
 ---
 
 ## 参考与致谢
@@ -89,7 +110,7 @@ Verifiable regex cheat sheet and study notes (Chinese). Not a full textbook.
 19. [本文修正过什么](#本文修正过什么)
 20. [许可证](#许可证)
 
-前 13 节把语法对上例子；14 节动手套常用模式；15 节是刹车——学完「能写」之后，再记住「不该写」。
+前 13 节把语法对上例子；14 节动手套常用模式；15 节是刹车——学完「能写」之后，再记住「不该写」。改正文里的 ✓ / ✗ 时，请同步 [`examples.yml`](examples.yml) 并看 [如何运行校验](#如何运行校验)。
 
 **阅读约定（核心语法尽量统一成下面四行）：**
 
@@ -776,6 +797,7 @@ PCRE 一类引擎往往还有回溯上限，但「写成更朴素的模式」仍
 7. 把「处理选项」扩成跨语言的 [标志与选项对照表](#标志与选项对照表)（`g` 按「找出全部」来讲，不当成 PCRE 模式正文修饰符）。
 8. [贪婪与懒惰](#贪婪与懒惰) 改成同一测试字符串的 ✓ / ✗ 对照，并补了标签例子。
 9. 语法后面接上 [常用实战模式](#常用实战模式) 和 [什么时候不该用正则](#什么时候不该用正则)（含 ReDoS 的教学说明，不是吓唬人）。
+10. 增加 [`examples.yml`](examples.yml) + [`scripts/check_examples.py`](scripts/check_examples.py) + GitHub Actions，把正文里能对上号的 ✓ / ✗ 自动跑一遍（见 [如何运行校验](#如何运行校验)）。
 
 仍可能有引擎边角差异。发现问题请对照 [regex101](https://regex101.com/)（PCRE2）和你实际语言的文档，欢迎直接改笔记。
 
